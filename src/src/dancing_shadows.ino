@@ -1,44 +1,101 @@
 #include <Arduino.h>
 #include <FastLED.h>
 
+/* parameters that could be good for controlling
+ *
+ * * number of spots
+ * * mode
+ * * speed
+ * * max length of long spot
+ * * brightness scale
+ * *
+ * *
+ */
 #define NUM_LEDS 144
 
 CRGB leds[NUM_LEDS];
 
-#define NUM_SPOTS 30
+#define NUM_SPOTS 5
 
 struct spot {
   int shift;
   CRGB color;
-  uint8_t x;
+  int x;
   uint8_t width;
   uint8_t type;
 };
 
 spot spots[NUM_SPOTS];
 
+#define MODE_RANDOM 0
+#define MODE_HEADLIGHTS 1
+
+#define SPOT_TYPE_SOLID 0
+#define SPOT_TYPE_GRADIENT 1
+#define SPOT_TYPE_2X_DOT 2
+#define SPOT_TYPE_3X_DOT 3
+
+uint8_t mode = MODE_RANDOM;
+
 void setup() {
   FastLED.addLeds<APA102, MOSI, SCK, BGR>(leds, NUM_LEDS);
-  //FastLED.setDither(0);
-  for (uint8_t i = 0; i < NUM_SPOTS; i++) {
-    spots[i] = random_spot();
+
+switch (mode) {
+  case MODE_RANDOM:
+    for (uint8_t i = 0; i < NUM_SPOTS; i++) {
+      spots[i] = random_spot();
+    }
+    break;
+
+    case MODE_HEADLIGHTS:
+    for (uint8_t i = 0; i < NUM_SPOTS; i++) {
+      spots[i] = new_headlights();
+    }
+
+    break;
   }
+}
+
+spot new_headlights() {
+  spot s;
+
+  s.color = CRGB::White;
+  s.type = SPOT_TYPE_3X_DOT;
+  s.width = 4;
+  s.x = random8(2) * NUM_LEDS;
+  if (s.x == 0) {
+    s.x = -random8(100);
+  } else {
+    s.x += random8(100);
+  }
+
+  s.shift = random8(1,3) * (s.x == 0 ? 1 : -1);
+
+  return s;
 }
 
 spot random_spot() {
   spot s;
 
   s.color = CHSV(random8(), 255, random8());
-  s.x = random8(2) * NUM_LEDS;
-  s.shift = random8(7) - 3;
   s.width = random8(1, 10);
-  s.type = random8(3);
+  s.x = random8(2) * (NUM_LEDS + s.width * 2) - s.width;
+  s.shift = (random8(7) - 3) * (s.x == 0 ? 1 : -1);
+  s.type = random8(4);
 
   if (s.shift == 0) {
-    s.shift = 1;
+    s.shift = s.x == 0 ? 1 : -1;
   }
 
   return s;
+}
+
+void blend_led(int x, CRGB color) {
+  if (x < 0 || x >= NUM_LEDS) {
+    return;
+  } else {
+    leds[x] = blend(leds[x], color, 127);
+  }
 }
 
 void set_spot(uint16_t center, uint8_t width, uint8_t type, CRGB value) {
@@ -48,49 +105,76 @@ void set_spot(uint16_t center, uint8_t width, uint8_t type, CRGB value) {
     leds[center] = blend(leds[center], value, 127);
   } else {
     switch (type) {
-      case 0:
+      case SPOT_TYPE_SOLID:
       for(uint8_t i = 0; i < width; i++) {
-        uint8_t x = min(NUM_LEDS - 1, max(0, (center - width/2) + i));
-        leds[x] = blend(leds[x], value, 127);
+        int x = (center - width/2) + i;
+        blend_led(x, value);
       }
       break;
 
-      case 1:
+      case SPOT_TYPE_GRADIENT:
       for(uint8_t i = 0; i < width; i++) {
-        uint8_t x = min(NUM_LEDS - 1, max(0, (center - width/2) + i));
-        leds[x] = blend(leds[x], value - CHSV(0, 0, 255 - dim8_raw(quadwave8(map(i, 0, width - 1, 0, 255)))), 127);
+        int x = (center - width/2) + i;
+        blend_led(x, value - CHSV(0, 0, 255 - dim8_raw(quadwave8(map(i, 0, width - 1, 0, 255)))));
       }
       break;
 
-      case 2:
+      case SPOT_TYPE_2X_DOT:
       for (uint8_t i = 0; i < width; i+=2) {
-        uint8_t x = min(NUM_LEDS - 1, max(0, (center - width/2) + i));
-        leds[x] = blend(leds[x], value, 127);
+        int x = (center - width/2) + i;
+        blend_led(x, value);
       }
       break;
 
+      case SPOT_TYPE_3X_DOT:
+      for (uint8_t i = 0; i < width; i+=3) {
+        int x = (center - width/2) + i;
+        blend_led(x, value);
+      }
+      break;
     }
   }
 }
 
-uint8_t width = 0;
-uint8_t hue = 0;
+boolean advance_spot(spot &s) {
+    int new_x = s.x + s.shift;
+
+    if ((s.shift > 0 && new_x > NUM_LEDS + s.width) || (s.shift < 0 && new_x < -s.width)) {
+      return false;
+    } else {
+      s.x = new_x;
+    }
+
+  return true;
+}
 
 void loop() {
   FastLED.clear();
-  for (uint8_t i = 0; i < NUM_SPOTS; i++) {
-    int new_x = spots[i].x + spots[i].shift;
+  switch (mode) {
+    case MODE_RANDOM:
+    for (uint8_t i = 0; i < NUM_SPOTS; i++) {
+      if (!advance_spot(spots[i])) {
+        spots[i] = random_spot();
+      }
 
-    if (new_x > NUM_LEDS || new_x < 0) {
-      spots[i] = random_spot();
-    } else {
-      spots[i].x = new_x;
+      set_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
     }
+    break;
 
-    set_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
+    case MODE_HEADLIGHTS:
+    for (uint8_t i = 0; i < NUM_SPOTS; i++) {
+      if (!advance_spot(spots[i])) {
+        spots[i] = new_headlights();
+      } else {
+        spots[i].color = CHSV(0, (spots[i].x > NUM_LEDS / 2) == (spots[i].shift > 0) ? 255 : 0, 255 - quadwave8((spots[i].x * 255) / NUM_LEDS));
+      }
+
+      set_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
+    }
+    break;
   }
 
   FastLED.show();
 
-  delay(50);
+  delay(100);
 }
