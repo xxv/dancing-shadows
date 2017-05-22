@@ -18,7 +18,9 @@ CRGB leds[NUM_LEDS];
 #define NUM_SPOTS 5
 
 struct spot {
-  int shift;
+  bool direction_positive;
+  uint8_t shift_mod;
+  uint8_t shift_counter;
   CRGB color;
   int x;
   uint8_t width;
@@ -69,7 +71,9 @@ spot new_headlights() {
     s.x += random8(100);
   }
 
-  s.shift = random8(1,3) * (s.x == 0 ? 1 : -1);
+  s.shift_mod = random8(10, 15);
+  s.shift_counter = 0;
+  s.direction_positive = s.x <= 0;
 
   return s;
 }
@@ -80,12 +84,9 @@ spot random_spot() {
   s.color = CHSV(random8(), 255, random8());
   s.width = random8(1, 10);
   s.x = random8(2) * (NUM_LEDS + s.width * 2) - s.width;
-  s.shift = (random8(7) - 3) * (s.x == 0 ? 1 : -1);
+  s.shift_mod = (random8(1, 20));
+  s.direction_positive = s.x <= 0;
   s.type = random8(4);
-
-  if (s.shift == 0) {
-    s.shift = s.x == 0 ? 1 : -1;
-  }
 
   return s;
 }
@@ -137,13 +138,18 @@ void set_spot(uint16_t center, uint8_t width, uint8_t type, CRGB value) {
 }
 
 boolean advance_spot(spot &s) {
-    int new_x = s.x + s.shift;
+  s.shift_counter = (s.shift_counter + 1) % s.shift_mod;
 
-    if ((s.shift > 0 && new_x > NUM_LEDS + s.width) || (s.shift < 0 && new_x < -s.width)) {
+  if (s.shift_counter == 0) {
+    int new_x = s.x + (s.direction_positive ? 1 : -1);
+
+    if ((s.direction_positive && new_x > NUM_LEDS + s.width)
+    || (!s.direction_positive && new_x < -s.width)) {
       return false;
     } else {
       s.x = new_x;
     }
+  }
 
   return true;
 }
@@ -166,7 +172,7 @@ void loop() {
       if (!advance_spot(spots[i])) {
         spots[i] = new_headlights();
       } else {
-        spots[i].color = CHSV(0, (spots[i].x > NUM_LEDS / 2) == (spots[i].shift > 0) ? 255 : 0, 255 - quadwave8((spots[i].x * 255) / NUM_LEDS));
+        spots[i].color = CHSV(0, ((spots[i].x > NUM_LEDS / 2) == spots[i].direction_positive) ? 255 : 0, 255 - quadwave8((spots[i].x * 255) / NUM_LEDS));
       }
 
       set_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
@@ -176,5 +182,5 @@ void loop() {
 
   FastLED.show();
 
-  delay(100);
+  delay(1);
 }
