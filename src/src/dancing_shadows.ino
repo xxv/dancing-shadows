@@ -38,9 +38,10 @@ spot spots[NUM_SPOTS];
 #define SPOT_TYPE_3X_DOT 3
 
 uint8_t mode = MODE_RANDOM;
+//uint8_t mode = MODE_HEADLIGHTS;
 
 void setup() {
-  FastLED.addLeds<APA102, MOSI, SCK, BGR>(leds, NUM_LEDS);
+  FastLED.addLeds<APA102, 4, 5, BGR>(leds, NUM_LEDS);
 
 switch (mode) {
   case MODE_RANDOM:
