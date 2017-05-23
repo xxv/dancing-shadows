@@ -25,12 +25,14 @@ struct spot {
   int x;
   uint8_t width;
   uint8_t type;
+  uint16_t ticks;
 };
 
 spot spots[NUM_SPOTS];
 
 #define MODE_RANDOM 0
 #define MODE_HEADLIGHTS 1
+#define MODE_DIFFUSE 2
 
 #define SPOT_TYPE_SOLID 0
 #define SPOT_TYPE_GRADIENT 1
@@ -43,21 +45,21 @@ uint8_t mode = MODE_RANDOM;
 void setup() {
   FastLED.addLeds<APA102, 4, 5, BGR>(leds, NUM_LEDS);
 
-switch (mode) {
-  case MODE_RANDOM:
-    for (uint8_t i = 0; i < NUM_SPOTS; i++) {
-      spots[i] = random_spot();
+  for (uint8_t i = 0; i < NUM_SPOTS; i++) {
+    switch (mode) {
+      case MODE_RANDOM:
+        spots[i] = random_spot();
+        break;
+      case MODE_HEADLIGHTS:
+        spots[i] = new_headlights();
+        break;
+        case MODE_DIFFUSE:
+        spots[i] = random_diffuse();
+        break;
     }
-    break;
-
-    case MODE_HEADLIGHTS:
-    for (uint8_t i = 0; i < NUM_SPOTS; i++) {
-      spots[i] = new_headlights();
-    }
-
-    break;
   }
 }
+
 
 spot new_headlights() {
   spot s;
@@ -75,6 +77,7 @@ spot new_headlights() {
   s.shift_mod = random8(10, 15);
   s.shift_counter = 0;
   s.direction_positive = s.x <= 0;
+  s.ticks = 0;
 
   return s;
 }
@@ -88,6 +91,21 @@ spot random_spot() {
   s.shift_mod = (random8(1, 20));
   s.direction_positive = s.x <= 0;
   s.type = random8(4);
+  s.ticks = 0;
+
+  return s;
+}
+
+spot random_diffuse() {
+  spot s;
+
+  s.color = CHSV(random8(), 255, 10);
+  s.width = 1;
+  s.x = random8(NUM_LEDS - s.width);
+  s.shift_mod = (random8(1, 20));
+  s.direction_positive = s.x <= 0;
+  s.type = SPOT_TYPE_SOLID;
+  s.ticks = 0;
 
   return s;
 }
@@ -157,28 +175,43 @@ boolean advance_spot(spot &s) {
 
 void loop() {
   FastLED.clear();
-  switch (mode) {
-    case MODE_RANDOM:
-    for (uint8_t i = 0; i < NUM_SPOTS; i++) {
-      if (!advance_spot(spots[i])) {
-        spots[i] = random_spot();
-      }
-
-      draw_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
+  for (uint8_t i = 0; i < NUM_SPOTS; i++) {
+    switch (mode) {
+      case MODE_RANDOM:
+        if (!advance_spot(spots[i])) {
+          spots[i] = random_spot();
+        }
+        break;
+      case MODE_HEADLIGHTS:
+        if (!advance_spot(spots[i])) {
+          spots[i] = new_headlights();
+        } else {
+          spots[i].color = CHSV(0, ((spots[i].x > NUM_LEDS / 2) == spots[i].direction_positive) ? 255 : 0, 255 - quadwave8((spots[i].x * 255) / NUM_LEDS));
+        }
+        break;
+      case MODE_DIFFUSE:
+        if (spots[i].ticks != 65535) {
+          if (spots[i].shift_counter == 0) {
+            if (spots[i].ticks < 1024) {
+              spots[i].color.maximizeBrightness();
+            } else {
+              if (spots[i].width < 10) {
+                spots[i].width += 1;
+              }
+              spots[i].color.fadeToBlackBy(10);
+              if (spots[i].color.getAverageLight() == 0) {
+                spots[i].ticks = 65534;
+              }
+            }
+          }
+          spots[i].shift_counter = (spots[i].shift_counter + 1) % spots[i].shift_mod;
+        } else {
+          spots[i] = random_diffuse();
+        }
+        break;
     }
-    break;
-
-    case MODE_HEADLIGHTS:
-    for (uint8_t i = 0; i < NUM_SPOTS; i++) {
-      if (!advance_spot(spots[i])) {
-        spots[i] = new_headlights();
-      } else {
-        spots[i].color = CHSV(0, ((spots[i].x > NUM_LEDS / 2) == spots[i].direction_positive) ? 255 : 0, 255 - quadwave8((spots[i].x * 255) / NUM_LEDS));
-      }
-
-      draw_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
-    }
-    break;
+    spots[i].ticks += 1;
+    draw_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
   }
 
   FastLED.show();
