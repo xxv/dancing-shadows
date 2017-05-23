@@ -99,7 +99,7 @@ void blend_led(int x, CRGB color) {
   }
 }
 
-void set_spot(uint16_t center, uint8_t width, uint8_t type, CRGB value) {
+void draw_spot(uint16_t center, uint8_t width, uint8_t type, CRGB value) {
   if (width == 0) {
     return;
   } else if (width == 1) {
@@ -163,7 +163,7 @@ void loop() {
         spots[i] = random_spot();
       }
 
-      set_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
+      draw_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
     }
     break;
 
@@ -175,7 +175,7 @@ void loop() {
         spots[i].color = CHSV(0, ((spots[i].x > NUM_LEDS / 2) == spots[i].direction_positive) ? 255 : 0, 255 - quadwave8((spots[i].x * 255) / NUM_LEDS));
       }
 
-      set_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
+      draw_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
     }
     break;
   }
