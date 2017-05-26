@@ -22,7 +22,7 @@ struct spot {
   uint8_t shift_mod;
   uint8_t shift_counter;
   CRGB color;
-  int x;
+  int center;
   uint8_t width;
   uint8_t type;
   uint16_t ticks;
@@ -65,16 +65,16 @@ spot new_headlights() {
   s.color = CRGB::White;
   s.type = SPOT_TYPE_3X_DOT;
   s.width = 4;
-  s.x = random8(2) * NUM_LEDS;
-  if (s.x == 0) {
-    s.x = -random8(100);
+  s.center = random8(2) * NUM_LEDS;
+  if (s.center == 0) {
+    s.center = -random8(100);
   } else {
-    s.x += random8(100);
+    s.center += random8(100);
   }
 
   s.shift_mod = random8(10, 15);
   s.shift_counter = 0;
-  s.direction_positive = s.x <= 0;
+  s.direction_positive = s.center <= 0;
   s.ticks = 0;
 
   return s;
@@ -83,12 +83,12 @@ spot new_headlights() {
 spot random_spot() {
   spot s;
 
-  s.color = CHSV(random8(), 255, random8(BRIGHTNESS));
+  s.color = CHSV(random8(), 255, random8(1, BRIGHTNESS));
   s.width = random8(1, 10);
-  s.x = random8(2) * (NUM_LEDS + s.width * 2) - s.width;
+  s.center = random8(2) * (NUM_LEDS + s.width * 2) - s.width;
   s.shift_counter = 0;
   s.shift_mod = (random8(1, 20));
-  s.direction_positive = s.x <= 0;
+  s.direction_positive = s.center <= 0;
   s.type = random8(4);
   s.ticks = 0;
 
@@ -100,10 +100,10 @@ spot random_diffuse() {
 
   s.color = CHSV(random8(), 255, 10);
   s.width = 1;
-  s.x = random8(NUM_LEDS - s.width);
+  s.center = random8(NUM_LEDS - s.width);
   s.shift_counter = 0;
   s.shift_mod = (random8(1, 20));
-  s.direction_positive = s.x <= 0;
+  s.direction_positive = s.center <= 0;
   s.type = SPOT_TYPE_SOLID;
   s.ticks = 0;
 
@@ -118,38 +118,39 @@ void blend_led(int x, CRGB color) {
   }
 }
 
-void draw_spot(int center, uint8_t width, uint8_t type, CRGB value) {
-  if (width == 0) {
+void draw_spot(spot &spot) {
+  if (spot.width == 0) {
     return;
-  } else if (width == 1) {
-    leds[center] = blend(leds[center], value, 127);
+  } else if (spot.width == 1) {
+    leds[spot.center] = blend(leds[spot.center], spot.color, 127);
   } else {
-    switch (type) {
+    switch (spot.type) {
       case SPOT_TYPE_SOLID:
-      for(uint8_t i = 0; i < width; i++) {
-        int x = (center - width/2) + i;
-        blend_led(x, value);
+      for (int i = 0; i < spot.width; i++) {
+        int x = (spot.center - spot.width/2) + i;
+        blend_led(x, spot.color);
       }
       break;
 
       case SPOT_TYPE_GRADIENT:
-      for(uint8_t i = 0; i < width; i++) {
-        int x = (center - width/2) + i;
-        blend_led(x, value - CHSV(0, 0, 255 - dim8_raw(quadwave8(map(i, 0, width - 1, 0, 255)))));
+      for (int i = 0; i < spot.width; i++) {
+        int x = (spot.center - spot.width/2) + i;
+        blend_led(x, spot.color - CHSV(0, 0,
+          255 - dim8_raw(quadwave8(map(i, 0, spot.width - 1, 0, 255)))));
       }
       break;
 
       case SPOT_TYPE_2X_DOT:
-      for (uint8_t i = 0; i < width; i+=2) {
-        int x = (center - width/2) + i;
-        blend_led(x, value);
+      for (int i = 0; i < spot.width; i+=2) {
+        int x = (spot.center - spot.width/2) + i;
+        blend_led(x, spot.color);
       }
       break;
 
       case SPOT_TYPE_3X_DOT:
-      for (uint8_t i = 0; i < width; i+=3) {
-        int x = (center - width/2) + i;
-        blend_led(x, value);
+      for (int i = 0; i < spot.width; i+=3) {
+        int x = (spot.center - spot.width/2) + i;
+        blend_led(x, spot.color);
       }
       break;
     }
@@ -160,13 +161,13 @@ boolean advance_spot(spot &s) {
   s.shift_counter = (s.shift_counter + 1) % s.shift_mod;
 
   if (s.shift_counter == 0) {
-    int new_x = s.x + (s.direction_positive ? 1 : -1);
+    int new_x = s.center + (s.direction_positive ? 1 : -1);
 
     if ((s.direction_positive && new_x > (NUM_LEDS + s.width))
         || (!s.direction_positive && new_x < -s.width)) {
       return false;
     } else {
-      s.x = new_x;
+      s.center = new_x;
     }
   }
 
@@ -187,8 +188,8 @@ void loop() {
           spots[i] = new_headlights();
         } else {
           spots[i].color = CHSV(0,
-            ((spots[i].x > NUM_LEDS / 2) == spots[i].direction_positive) ? 255 : 0,
-             255 - quadwave8((spots[i].x * 255) / NUM_LEDS));
+            ((spots[i].center > NUM_LEDS / 2) == spots[i].direction_positive) ? 255 : 0,
+             255 - quadwave8((spots[i].center * 255) / NUM_LEDS));
         }
         break;
       case MODE_DIFFUSE:
@@ -213,7 +214,7 @@ void loop() {
         break;
     }
     spots[i].ticks += 1;
-    draw_spot(spots[i].x, spots[i].width, spots[i].type, spots[i].color);
+    draw_spot(spots[i]);
   }
 
   FastLED.show();
