@@ -11,11 +11,11 @@
  * *
  * *
  */
-#define NUM_LEDS 144
+const int NUM_LEDS = 288;
+const int NUM_SPOTS  = 10;
+const int BRIGHTNESS = 255;
 
 CRGB leds[NUM_LEDS];
-
-#define NUM_SPOTS 5
 
 struct spot {
   bool direction_positive;
@@ -40,10 +40,9 @@ spot spots[NUM_SPOTS];
 #define SPOT_TYPE_3X_DOT 3
 
 uint8_t mode = MODE_RANDOM;
-//uint8_t mode = MODE_HEADLIGHTS;
 
 void setup() {
-  FastLED.addLeds<APA102, 4, 5, BGR>(leds, NUM_LEDS);
+  FastLED.addLeds<APA102, BGR>(leds, NUM_LEDS);
 
   for (uint8_t i = 0; i < NUM_SPOTS; i++) {
     switch (mode) {
@@ -59,7 +58,6 @@ void setup() {
     }
   }
 }
-
 
 spot new_headlights() {
   spot s;
@@ -85,9 +83,10 @@ spot new_headlights() {
 spot random_spot() {
   spot s;
 
-  s.color = CHSV(random8(), 255, random8());
+  s.color = CHSV(random8(), 255, random8(BRIGHTNESS));
   s.width = random8(1, 10);
   s.x = random8(2) * (NUM_LEDS + s.width * 2) - s.width;
+  s.shift_counter = 0;
   s.shift_mod = (random8(1, 20));
   s.direction_positive = s.x <= 0;
   s.type = random8(4);
@@ -102,6 +101,7 @@ spot random_diffuse() {
   s.color = CHSV(random8(), 255, 10);
   s.width = 1;
   s.x = random8(NUM_LEDS - s.width);
+  s.shift_counter = 0;
   s.shift_mod = (random8(1, 20));
   s.direction_positive = s.x <= 0;
   s.type = SPOT_TYPE_SOLID;
@@ -118,7 +118,7 @@ void blend_led(int x, CRGB color) {
   }
 }
 
-void draw_spot(uint16_t center, uint8_t width, uint8_t type, CRGB value) {
+void draw_spot(int center, uint8_t width, uint8_t type, CRGB value) {
   if (width == 0) {
     return;
   } else if (width == 1) {
@@ -162,8 +162,8 @@ boolean advance_spot(spot &s) {
   if (s.shift_counter == 0) {
     int new_x = s.x + (s.direction_positive ? 1 : -1);
 
-    if ((s.direction_positive && new_x > NUM_LEDS + s.width)
-    || (!s.direction_positive && new_x < -s.width)) {
+    if ((s.direction_positive && new_x > (NUM_LEDS + s.width))
+        || (!s.direction_positive && new_x < -s.width)) {
       return false;
     } else {
       s.x = new_x;
@@ -186,7 +186,9 @@ void loop() {
         if (!advance_spot(spots[i])) {
           spots[i] = new_headlights();
         } else {
-          spots[i].color = CHSV(0, ((spots[i].x > NUM_LEDS / 2) == spots[i].direction_positive) ? 255 : 0, 255 - quadwave8((spots[i].x * 255) / NUM_LEDS));
+          spots[i].color = CHSV(0,
+            ((spots[i].x > NUM_LEDS / 2) == spots[i].direction_positive) ? 255 : 0,
+             255 - quadwave8((spots[i].x * 255) / NUM_LEDS));
         }
         break;
       case MODE_DIFFUSE:
