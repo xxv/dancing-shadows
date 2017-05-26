@@ -122,7 +122,9 @@ void draw_spot(spot &spot) {
   if (spot.width == 0) {
     return;
   } else if (spot.width == 1) {
-    leds[spot.center] = blend(leds[spot.center], spot.color, 127);
+    if (spot.center >= 0 && spot.center < NUM_LEDS) {
+      leds[spot.center] = blend(leds[spot.center], spot.color, 127);
+    }
   } else {
     switch (spot.type) {
       case SPOT_TYPE_SOLID:
