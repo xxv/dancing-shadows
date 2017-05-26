@@ -113,18 +113,18 @@ spot random_diffuse() {
 void blend_led(int x, CRGB color) {
   if (x < 0 || x >= NUM_LEDS) {
     return;
-  } else {
-    leds[x] = blend(leds[x], color, 127);
   }
+
+  leds[x] = blend(leds[x], color, 127);
 }
 
 void draw_spot(spot &spot) {
   if (spot.width == 0) {
     return;
-  } else if (spot.width == 1) {
-    if (spot.center >= 0 && spot.center < NUM_LEDS) {
-      leds[spot.center] = blend(leds[spot.center], spot.color, 127);
-    }
+  }
+
+  if (spot.width == 1) {
+    blend_led(spot.center, spot.color);
   } else {
     switch (spot.type) {
       case SPOT_TYPE_SOLID:
