@@ -11,8 +11,8 @@
  * *
  * *
  */
-const int NUM_LEDS = 288;
-const int NUM_SPOTS  = 10;
+const int NUM_LEDS =  300;
+const int NUM_SPOTS  = 25;
 const int BRIGHTNESS = 255;
 
 CRGB leds[NUM_LEDS];
