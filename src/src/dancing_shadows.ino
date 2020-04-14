@@ -40,6 +40,7 @@ spot spots[NUM_SPOTS];
 #define SPOT_TYPE_2X_DOT 2
 #define SPOT_TYPE_3X_DOT 3
 #define SPOT_TYPE_4X_DOT 4
+#define SPOT_TYPES_COUNT 5
 
 uint8_t mode = MODE_RANDOM;
 
@@ -96,7 +97,7 @@ spot random_spot() {
   s.shift_counter = 0;
   s.shift_mod = (random8(1, 20));
   s.direction_positive = s.center <= 0;
-  s.type = random8(4);
+  s.type = random8(SPOT_TYPES_COUNT);
   s.ticks = 0;
 
   return s;
@@ -151,14 +152,21 @@ void draw_spot(spot &spot) {
       break;
 
       case SPOT_TYPE_2X_DOT:
-      for (int i = 0; i < spot.width; i+=2) {
+      for (int i = 0; i < spot.width; i += 2) {
         int x = (spot.center - spot.width/2) + i;
         blend_led(x, spot.color);
       }
       break;
 
       case SPOT_TYPE_3X_DOT:
-      for (int i = 0; i < spot.width; i+=3) {
+      for (int i = 0; i < spot.width; i += 3) {
+        int x = (spot.center - spot.width/2) + i;
+        blend_led(x, spot.color);
+      }
+      break;
+
+      case SPOT_TYPE_4X_DOT:
+      for (int i = 0; i < spot.width; i += 4) {
         int x = (spot.center - spot.width/2) + i;
         blend_led(x, spot.color);
       }
