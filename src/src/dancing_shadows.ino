@@ -39,10 +39,16 @@ spot spots[NUM_SPOTS];
 #define SPOT_TYPE_GRADIENT 1
 #define SPOT_TYPE_2X_DOT 2
 #define SPOT_TYPE_3X_DOT 3
+#define SPOT_TYPE_4X_DOT 4
 
 uint8_t mode = MODE_RANDOM;
 
 void setup() {
+  pinMode(A1, INPUT);
+  for (int i = 0; i < 100; i++) {
+    random16_add_entropy(analogRead(A1));
+  }
+
   FastLED.addLeds<APA102, BGR>(leds, NUM_LEDS);
 
   for (uint8_t i = 0; i < NUM_SPOTS; i++) {
