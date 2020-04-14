@@ -16,6 +16,7 @@ const int NUM_SPOTS  = 25;
 const int BRIGHTNESS = 255;
 
 CRGB leds[NUM_LEDS];
+CRGB scratch;
 
 struct spot {
   bool direction_positive;
@@ -137,8 +138,9 @@ void draw_spot(spot &spot) {
       case SPOT_TYPE_GRADIENT:
       for (int i = 0; i < spot.width; i++) {
         int x = (spot.center - spot.width/2) + i;
-        blend_led(x, spot.color - CHSV(0, 0,
-          255 - dim8_raw(quadwave8(map(i, 0, spot.width - 1, 0, 255)))));
+        scratch = spot.color;
+        scratch.nscale8_video(quadwave8(map(i, 0, spot.width - 1, 0, 255)));
+        blend_led(x, scratch);
       }
       break;
 
