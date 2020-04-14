@@ -193,49 +193,50 @@ boolean advance_spot(spot &s) {
 }
 
 void loop() {
-  FastLED.clear();
-  for (uint8_t i = 0; i < NUM_SPOTS; i++) {
-    switch (mode) {
-      case MODE_RANDOM:
-        if (!advance_spot(spots[i])) {
-          spots[i] = random_spot();
-        }
-        break;
-      case MODE_HEADLIGHTS:
-        if (!advance_spot(spots[i])) {
-          spots[i] = new_headlights();
-        } else {
-          spots[i].color = CHSV(0,
-            ((spots[i].center > NUM_LEDS / 2) == spots[i].direction_positive) ? 255 : 0,
-             255 - quadwave8((spots[i].center * 255) / NUM_LEDS));
-        }
-        break;
-      case MODE_DIFFUSE:
-        if (spots[i].ticks != 65535) {
-          if (spots[i].shift_counter == 0) {
-            if (spots[i].ticks < 1024) {
-              spots[i].color.maximizeBrightness();
-            } else {
-              if (spots[i].width < 10) {
-                spots[i].width += 1;
-              }
-              spots[i].color.fadeToBlackBy(10);
-              if (spots[i].color.getAverageLight() == 0) {
-                spots[i].ticks = 65534;
+  EVERY_N_MILLIS(1) {
+    FastLED.clear();
+    for (uint8_t i = 0; i < NUM_SPOTS; i++) {
+      switch (mode) {
+        case MODE_RANDOM:
+          if (!advance_spot(spots[i])) {
+            spots[i] = random_spot();
+          }
+          break;
+        case MODE_HEADLIGHTS:
+          if (!advance_spot(spots[i])) {
+            spots[i] = new_headlights();
+          } else {
+            spots[i].color = CHSV(0,
+              ((spots[i].center > NUM_LEDS / 2) == spots[i].direction_positive) ? 255 : 0,
+               255 - quadwave8((spots[i].center * 255) / NUM_LEDS));
+          }
+          break;
+
+        case MODE_DIFFUSE:
+          if (spots[i].ticks != 65535) {
+            if (spots[i].shift_counter == 0) {
+              if (spots[i].ticks < 1024) {
+                spots[i].color.maximizeBrightness();
+              } else {
+                if (spots[i].width < 10) {
+                  spots[i].width += 1;
+                }
+                spots[i].color.fadeToBlackBy(10);
+                if (spots[i].color.getAverageLight() == 0) {
+                  spots[i].ticks = 65534;
+                }
               }
             }
+            spots[i].shift_counter = (spots[i].shift_counter + 1) % spots[i].shift_mod;
+          } else {
+            spots[i] = random_diffuse();
           }
-          spots[i].shift_counter = (spots[i].shift_counter + 1) % spots[i].shift_mod;
-        } else {
-          spots[i] = random_diffuse();
-        }
-        break;
+          break;
+      }
+      spots[i].ticks += 1;
+      draw_spot(spots[i]);
     }
-    spots[i].ticks += 1;
-    draw_spot(spots[i]);
+
+    FastLED.show();
   }
-
-  FastLED.show();
-
-  delay(1);
 }
